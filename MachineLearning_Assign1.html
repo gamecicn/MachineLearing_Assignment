@@ -93,6 +93,7 @@ dim(train_data)</code></pre>
 <pre class="r"><code># Remove appearently unrelated features 
 train_data &lt;- subset(train_data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp))
 
+# Remove columns which include too many NA vaclue
 feature_na_num &lt;- apply(train_data, 2, function(x) { sum(is.na(x))} )
 many_na_column &lt;- feature_na_num[which(feature_na_num &gt; (dim(train_data)[1] * 0.10))]
 
@@ -118,10 +119,11 @@ train_data &lt;- subset(train_data, select = ! names(train_data) %in% names(cor_
 
 dim(train_data)</code></pre>
 <pre><code>## [1] 19622    33</code></pre>
-<p>After data processing, we got 19622 samples , 42 features.</p>
+<p>After data processing, we got 19622 samples , 33 features. By features reducing, we finally got 33 features instead of 160 at the begining. The reducing will help us cut machining learning time consuming greatly.</p>
 </div>
 <div id="splite-data" class="section level2">
 <h2>Splite Data</h2>
+<p>We will splite all samples into 2 groups, training (70%) and testing (30%) data. So that we can get Out-of-Sample error.</p>
 <pre class="r"><code>#split data into training data nd testing data
 inTrain &lt;- createDataPartition(y=train_data$classe, p=0.7, list=FALSE)
 
@@ -137,6 +139,7 @@ dim(training)</code></pre>
 </div>
 <div id="machine-learning" class="section level1">
 <h1>Machine Learning</h1>
+<p>We use Random Forest model for machine learning. Here we set number of tree to 100 in case of R generating too many tree to cost a very long time. We can tune this parameter according predicting accuracy and time consuming.</p>
 <pre class="r"><code>library(e1071)
 library(mboost)</code></pre>
 <pre><code>## Loading required package: parallel
@@ -152,19 +155,29 @@ library(mboost)</code></pre>
 ##     %+%</code></pre>
 <pre class="r"><code>set.seed(1024)
 
-#mod_glm &lt;- train(classe ~ ., method=&quot;glm&quot;, data=training)
 mod_rf &lt;- train(classe ~ ., method=&quot;rf&quot;, data=training, ntree=100,
                   trControl = trainControl(method=&quot;cv&quot;), number=3)</code></pre>
 <pre><code>## Loading required package: randomForest
 ## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
-<pre class="r"><code>#pred_glm &lt;- predict(mod_glm, testing)
-pred_rf &lt;- predict(mod_rf, testing)
+</div>
+<div id="cross-validation-test" class="section level1">
+<h1>Cross Validation Test</h1>
+<pre class="r"><code>pred_rf &lt;- predict(mod_rf, testing)
 
-confusionMatrix(pred_rf,testing$classe)$overall[&quot;Accuracy&quot;]</code></pre>
+cm &lt;- confusionMatrix(pred_rf,testing$classe)
+
+cm$table</code></pre>
+<pre><code>##           Reference
+## Prediction    A    B    C    D    E
+##          A 1672    3    0    0    0
+##          B    0 1135    6    1    0
+##          C    0    1 1019    4    0
+##          D    0    0    1  957    1
+##          E    2    0    0    2 1081</code></pre>
+<pre class="r"><code>cm$overall[&quot;Accuracy&quot;]</code></pre>
 <pre><code>##  Accuracy 
-## 0.9986406</code></pre>
-<pre class="r"><code>#qplot(pred_rf, color=training$classe, data=testing)</code></pre>
+## 0.9964316</code></pre>
 <p>Accuracy is 99.6%, which means Out-of-sample error is only 0.4%, is pretty good</p>
 </div>
 <div id="predict" class="section level1">

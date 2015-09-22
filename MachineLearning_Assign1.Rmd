@@ -45,6 +45,7 @@ above it will be removed from data set.
 # Remove appearently unrelated features 
 train_data <- subset(train_data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp))
 
+# Remove columns which include too many NA vaclue
 feature_na_num <- apply(train_data, 2, function(x) { sum(is.na(x))} )
 many_na_column <- feature_na_num[which(feature_na_num > (dim(train_data)[1] * 0.10))]
 
@@ -70,9 +71,16 @@ train_data <- subset(train_data, select = ! names(train_data) %in% names(cor_dat
 dim(train_data)
 ```
 
-After data processing, we got 19622 samples , 42 features.
+After data processing, we got 19622 samples , 33 features. By features reducing,
+we finally got 33 features instead of 160 at the begining. The reducing will help
+us cut machining learning time consuming greatly.
+
+
 
 ## Splite Data##
+We will splite all samples into 2 groups, training (70%) and testing (30%) data. 
+So that we can get Out-of-Sample error.
+ 
 ```{r Splite Data , echo=TRUE}
 
 #split data into training data nd testing data
@@ -88,27 +96,32 @@ Training data include : 13737 samples.
 Testing data include : 5885 samples.
 
 # Machine Learning #
+We use Random Forest model for machine learning. Here we set number of tree to 100
+in case of R generating too many tree to cost a very long time. We can tune this 
+parameter according predicting accuracy and time consuming.
 ```{r Machine Learning , echo=TRUE}
 library(e1071)
 library(mboost)
 set.seed(1024)
 
-#mod_glm <- train(classe ~ ., method="glm", data=training)
 mod_rf <- train(classe ~ ., method="rf", data=training, ntree=100,
                   trControl = trainControl(method="cv"), number=3)
 
-#pred_glm <- predict(mod_glm, testing)
+```
+
+# Cross Validation Test #
+```{r Cross Validation , echo=TRUE}
 pred_rf <- predict(mod_rf, testing)
 
-confusionMatrix(pred_rf,testing$classe)$overall["Accuracy"]
+cm <- confusionMatrix(pred_rf,testing$classe)
 
+cm$table
 
-#qplot(pred_rf, color=training$classe, data=testing)
+cm$overall["Accuracy"]
 ```
 Accuracy is 99.6%, which means Out-of-sample error is only 0.4%, is pretty good
 
 # Predict  #
-
 Finally, we apply our model to offical test dataset. 
 ```{r Final Predict , echo=TRUE}
 processed_test_data <- test_data[, names(test_data) %in% names(testing)]

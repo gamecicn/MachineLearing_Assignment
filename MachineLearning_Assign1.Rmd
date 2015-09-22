@@ -1,0 +1,127 @@
+---
+title: "Machine_Learning_Assign1"
+author: "Martin Guo"
+date:  18 Sep 2015
+output: html_document
+---
+
+# Introduction #
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect 
+a large amount of data about personal activity relatively inexpensively. These type of devices 
+are part of the quantified self movement ?C a group of enthusiasts who take measurements 
+about themselves regularly to improve their health, to find patterns in their behavior, or 
+because they are tech geeks. One thing that people regularly do is quantify how much of a 
+particular activity they do, but they rarely quantify how well they do it. In this project, 
+our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 
+6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different 
+ways. More information is available from the website here: 
+
+http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+# Explore Data #
+
+## Load Data##
+```{r Load Explore , echo=TRUE}
+
+train_data <- read.csv("./data/pml-training.csv", na.strings=c("NA","", NULL))
+test_data <- read.csv("./data/pml-testing.csv", na.strings=c("NA","", NULL))
+
+#See dimension of data
+dim(train_data)
+dim(test_data)
+
+```
+
+## Reduce Data##
+There are many columns contains too many NA value, we remove these features so to 
+decrease compute complexity. We set 10% as a threshold, many column whose NA rate
+above it will be removed from data set.
+
+```{r Reduce Explore , echo=TRUE}
+
+# Remove appearently unrelated features 
+train_data <- subset(train_data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp))
+
+feature_na_num <- apply(train_data, 2, function(x) { sum(is.na(x))} )
+many_na_column <- feature_na_num[which(feature_na_num > (dim(train_data)[1] * 0.10))]
+
+train_data <- train_data[, -which(names(train_data) %in% names(many_na_column) )]
+
+#Reduced data
+dim(train_data)
+
+#Remove highly correlated column
+
+library(caret)
+
+# filter factor columns 
+cor_data <- subset(train_data, select = -c(new_window, classe))
+
+cor_matrix <- cor(cor_data)
+
+# get high correlation columns
+highly_cor <- findCorrelation(cor_matrix, cutoff=0.7)
+
+train_data <- subset(train_data, select = ! names(train_data) %in% names(cor_data)[highly_cor])
+
+dim(train_data)
+```
+
+After data processing, we got 19622 samples , 42 features.
+
+## Splite Data##
+```{r Splite Data , echo=TRUE}
+
+#split data into training data nd testing data
+inTrain <- createDataPartition(y=train_data$classe, p=0.7, list=FALSE)
+
+training <- train_data[inTrain,]
+testing <- train_data[-inTrain,]
+
+dim(training)
+dim(testing)
+```
+Training data include : 13737 samples.
+Testing data include : 5885 samples.
+
+# Machine Learning #
+```{r Machine Learning , echo=TRUE}
+library(e1071)
+library(mboost)
+set.seed(1024)
+
+#mod_glm <- train(classe ~ ., method="glm", data=training)
+mod_rf <- train(classe ~ ., method="rf", data=training, ntree=100,
+                  trControl = trainControl(method="cv"), number=3)
+
+#pred_glm <- predict(mod_glm, testing)
+pred_rf <- predict(mod_rf, testing)
+
+confusionMatrix(pred_rf,testing$classe)$overall["Accuracy"]
+
+
+#qplot(pred_rf, color=training$classe, data=testing)
+```
+Accuracy is 99.6%, which means Out-of-sample error is only 0.4%, is pretty good
+
+# Predict  #
+
+Finally, we apply our model to offical test dataset. 
+```{r Final Predict , echo=TRUE}
+processed_test_data <- test_data[, names(test_data) %in% names(testing)]
+
+final_predict <- predict(mod_rf, processed_test_data)
+final_predict
+```
+
+
+
+
+
+
+
+
+
